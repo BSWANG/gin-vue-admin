@@ -1,0 +1,173 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gin-vue-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+    - host: "gin-vue.test.com"
+      http:
+        paths:
+          - path: /v1/(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: gin
+                port:
+                  number: 8888
+    - host: "gin-vue.test.com"
+      http:
+        paths:
+          - path: /(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: vue
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gin
+  labels:
+    name: gin
+spec:
+  ports:
+  - name: http
+    port: 8888
+    targetPort: 8888
+  selector:
+    app: gin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vue
+  labels:
+    name: vue
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    app: vue
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gin
+spec:
+  selector:
+    matchLabels:
+      app: gin
+  template:
+    metadata:
+      labels:
+        app: gin
+    spec:
+      containers:
+        - image: "wonderflow/gva-server:v1"
+          imagePullPolicy: IfNotPresent
+          name: gva-server-v1
+          ports:
+            - containerPort: 8888
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 8888
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8888
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: config-volume
+              mountPath: /gva/config.yaml
+              subPath: config.yaml
+      restartPolicy: Always
+      volumes:
+        - name: config-volume
+          configMap:
+            name: configfile
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vue
+spec:
+  selector:
+    matchLabels:
+      app: vue
+  template:
+    metadata:
+      labels:
+        app: vue
+    spec:
+      containers:
+        - image: "registry.aliyuncs.com/wangbs/gin-vue-admin"
+          imagePullPolicy: Always
+          name: gva-server-v1
+          command:
+            - ./docker-start.sh
+            - frontend
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configfile
+data:
+  config.yaml: |
+    casbin:
+      model-path: './resource/rbac_model.conf'
+    jwt:
+      signing-key: 'qmPlus'
+    mysql:
+      username: root
+      password: 'Aa@6447985'
+      path: mysql:3306
+      db-name: 'qmPlus'
+      config: 'charset=utf8&parseTime=True&loc=Local'
+      max-idle-conns: 10
+      max-open-conns: 10
+      log-mode: true  
+    sqlite:
+      path: db.db
+      log-mode: true
+      config: 'loc=Asia/Shanghai'    
+    redis:
+      addr: redis:6379
+      password: ''
+      db: 0    
+    system:
+      use-multipoint: true
+      env: 'public'  # Change to "develop" to skip authentication for development mode
+      addr: 8888
+      db-type: "mysql"  # support mysql/sqlite  
+    captcha:
+      key-long: 6
+      img-width: 240
+      img-height: 80
+    log:
+      prefix: '[GIN-VUE-ADMIN]'
+      log-file: true
+      stdout: 'DEBUG'
+      file: 'DEBUG'
