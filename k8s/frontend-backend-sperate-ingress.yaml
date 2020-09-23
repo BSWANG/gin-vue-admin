@@ -4,6 +4,8 @@ metadata:
   name: gin-vue-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$1
+    #nginx.ingress.kubernetes.io/affinity: "cookie"
+    #nginx.ingress.kubernetes.io/session-cookie-path: "/"
 spec:
   rules:
     - host: "gin-vue.test.com"
